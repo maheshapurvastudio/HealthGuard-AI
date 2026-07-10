@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HealthGuard AI | Multilingual Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "@google/generative-ai": "https://esm.run/@google/generative-ai"
+        }
+      }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            scroll-behavior: smooth;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            border-b: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .typing-dot {
+            width: 6px;
+            height: 6px;
+            background: #3b82f6;
+            border-radius: 50%;
+            animation: blink 1.4s infinite both;
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 0.2;
+            }
+
+            20% {
+                opacity: 1;
+            }
+        }
+
+        .medical-card {
+            border-left: 4px solid #3b82f6;
+        }
+
+        /* --- Interactive UI Styles --- */
+        .urgency-low {
+            border-left-color: #10b981;
+            background: #ecfdf5;
+        }
+
+        .urgency-medium {
+            border-left-color: #f59e0b;
+            background: #fffbeb;
+        }
+
+        .urgency-high {
+            border-left-color: #f97316;
+            background: #fff7ed;
+        }
+
+        .urgency-critical {
+            border-left-color: #ef4444;
+            background: #fef2f2;
+            animation: pulseRed 2s infinite;
+        }
+
+        @keyframes pulseRed {
+            0% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+            }
+
+            70% {
+                box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+            }
+        }
+
+        .section-trigger {
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.2s;
+        }
+
+        .section-trigger:hover {
+            background: rgba(0, 0, 0, 0.02);
+        }
+
+        .section-content {
+            display: grid;
+            grid-template-rows: 0fr;
+            transition: grid-template-rows 0.3s ease-out;
+        }
+
+        .section-content>div {
+            overflow: hidden;
+        }
+
+        .section-expanded>.section-content {
+            grid-template-rows: 1fr;
+        }
+
+        .section-expanded .chevron-icon {
+            transform: rotate(180deg);
+        }
+
+        .chevron-icon {
+            transition: transform 0.3s;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 text-slate-900 min-h-screen">
+
+    <section id="login-screen" class="min-h-screen flex items-center justify-center p-6">
+        <div class="max-w-md w-full bg-white rounded-[2.5rem] shadow-2xl p-10 text-center fade-in">
+            <div
+                class="bg-blue-600 w-16 h-16 rounded-2xl flex items-center justify-center text-white mx-auto mb-6 shadow-lg shadow-blue-200">
+                <i data-lucide="activity" class="w-8 h-8"></i>
+            </div>
+            <h1 class="text-2xl font-bold mb-2">HealthGuard AI</h1>
+            <p class="text-slate-500 mb-8 text-sm leading-relaxed">Your intelligent companion for instant symptom
+                analysis, precautions, and medical tracking.</p>
+            <button onclick="mockLogin('Guest User')"
+                class="w-full bg-blue-600 text-white py-4 rounded-2xl font-semibold hover:bg-blue-700 transition shadow-lg shadow-blue-200">Get
+                Started</button>
+        </div>
+    </section>
+
+    <section id="app-interface" class="hidden flex flex-col min-h-screen">
+        <nav class="glass sticky top-0 z-50 px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-2 cursor-pointer" onclick="goToHome()">
+                <div class="bg-blue-600 p-1.5 rounded-lg text-white"><i data-lucide="activity" class="w-5 h-5"></i>
+                </div>
+                <h1 class="text-lg font-bold tracking-tight">HealthGuard <span class="text-blue-600">AI</span></h1>
+            </div>
+            <button onclick="logout()" class="text-slate-400 hover:text-red-500 transition"><i data-lucide="log-out"
+                    class="w-5 h-5"></i></button>
+        </nav>
+
+        <main class="flex-grow container mx-auto max-w-2xl p-6">
+
+            <div id="home-view" class="py-6 fade-in">
+                <div class="mb-10">
+                    <h2 class="text-3xl font-bold">Hello, <span id="display-name" class="text-blue-600">Explorer</span>
+                    </h2>
+                    <p class="text-slate-500 mt-1">Describe your symptoms in any language.</p>
+                </div>
+                <div class="grid grid-cols-1 gap-4">
+                    <div onclick="startNewChat()"
+                        class="p-8 bg-blue-600 rounded-[2.5rem] text-white cursor-pointer hover:scale-[1.01] transition shadow-xl shadow-blue-100 relative overflow-hidden group">
+                        <i data-lucide="heart-pulse" class="absolute -right-6 -bottom-6 w-32 h-32 opacity-10"></i>
+                        <h3 class="text-xl font-bold mb-1">Check Symptoms</h3>
+                        <p class="text-blue-100 text-sm opacity-90">Get analysis, precautions, and next steps.</p>
+                        <div class="mt-6 bg-white/20 w-fit px-5 py-2 rounded-full text-xs font-bold tracking-wide">NEW
+                            CHAT →</div>
+                    </div>
+                    <div onclick="goToLogs()"
+                        class="p-6 bg-white border border-slate-200 rounded-[2rem] cursor-pointer hover:border-blue-400 transition flex items-center gap-4">
+                        <div class="bg-blue-50 p-4 rounded-2xl text-blue-600"><i data-lucide="clipboard-list"></i></div>
+                        <div>
+                            <h3 class="font-bold text-slate-800">Health Logs</h3>
+                            <p class="text-slate-500 text-sm">Review your history</p>
+                        </div>
+                    </div>
+                </div>
+
+                <h2 class="text-xl font-bold mt-10 mb-4 text-slate-800">Health Utilities</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div onclick="goToBMI()"
+                        class="p-5 bg-white border border-slate-200 rounded-3xl cursor-pointer hover:border-blue-400 transition flex items-center gap-4">
+                        <div class="bg-indigo-50 p-3 rounded-xl text-indigo-600"><i data-lucide="scale"></i></div>
+                        <div>
+                            <h3 class="font-bold text-slate-800 text-sm">BMI Calculator</h3>
+                            <p class="text-slate-500 text-xs">Check weight status</p>
+                        </div>
+                    </div>
+
+                    <div onclick="goToFirstAid()"
+                        class="p-5 bg-white border border-slate-200 rounded-3xl cursor-pointer hover:border-blue-400 transition flex items-center gap-4">
+                        <div class="bg-red-50 p-3 rounded-xl text-red-600"><i data-lucide="shield-alert"></i></div>
+                        <div>
+                            <h3 class="font-bold text-slate-800 text-sm">First-Aid Guide</h3>
+                            <p class="text-slate-500 text-xs">Offline emergencies</p>
+                        </div>
+                    </div>
+
+                    <div onclick="findNearbyCare()"
+                        class="p-5 bg-white border border-slate-200 rounded-3xl cursor-pointer hover:border-blue-400 transition flex items-center gap-4">
+                        <div class="bg-teal-50 p-3 rounded-xl text-teal-600"><i data-lucide="map-pin"></i></div>
+                        <div>
+                            <h3 class="font-bold text-slate-800 text-sm">Find Nearby Care</h3>
+                            <p class="text-slate-500 text-xs">Locate hospitals and pharmacies near you</p>
+                        </div>
+                    </div>
+
+                    <div onclick="goToHelplines()"
+                        class="p-5 bg-white border border-slate-200 rounded-3xl cursor-pointer hover:border-blue-400 transition flex items-center gap-4">
+                        <div class="bg-rose-50 p-3 rounded-xl text-rose-600"><i data-lucide="phone-call"></i></div>
+                        <div>
+                            <h3 class="font-bold text-slate-800 text-sm">Emergency Helpline Numbers</h3>
+                            <p class="text-slate-500 text-xs">India emergency contacts (tap to call)</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="chat-view" class="hidden fade-in space-y-6 pb-44">
+                <button onclick="goToHome()"
+                    class="text-slate-400 hover:text-blue-600 flex items-center gap-1 text-sm mb-4">
+                    <i data-lucide="chevron-left" class="w-4 h-4"></i> Back to Home
+                </button>
+                <div id="chat-messages" class="space-y-6"></div>
+            </div>
+
+            <div id="logs-view" class="hidden fade-in pb-10">
+                <div class="flex items-center justify-between mb-8">
+                    <button onclick="goToHome()"
+                        class="text-slate-400 hover:text-blue-600 flex items-center gap-1 text-sm"><i
+                            data-lucide="chevron-left" class="w-4 h-4"></i> Back</button>
+                    <h2 class="text-xl font-bold">History</h2>
+                    <button onclick="clearLogs()" class="text-red-400 text-xs font-semibold hover:text-red-600">Clear
+                        All</button>
+                </div>
+                <div id="logs-list" class="space-y-4"></div>
+            </div>
+
+            <!-- BMI View -->
+            <div id="bmi-view" class="hidden fade-in space-y-6 pb-10">
+                <button onclick="goToHome()"
+                    class="text-slate-400 hover:text-blue-600 flex items-center gap-1 text-sm mb-4"><i
+                        data-lucide="chevron-left" class="w-4 h-4"></i> Back to Home</button>
+                <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="bg-indigo-100 p-2.5 rounded-xl text-indigo-600"><i data-lucide="scale"
+                                class="w-6 h-6"></i></div>
+                        <h2 class="text-2xl font-bold text-slate-800">BMI Calculator</h2>
+                    </div>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-500 mb-1">Weight (kg)</label>
+                            <input type="number" id="bmi-weight"
+                                class="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-600 transition"
+                                placeholder="e.g. 70" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-500 mb-1">Height (cm)</label>
+                            <input type="number" id="bmi-height"
+                                class="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-600 transition"
+                                placeholder="e.g. 175" />
+                        </div>
+                        <button onclick="calculateBMI()"
+                            class="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-2xl hover:bg-indigo-700 transition">Calculate
+                            BMI</button>
+                    </div>
+                    <div id="bmi-result" class="mt-6 hidden"></div>
+                </div>
+            </div>
+
+            <!-- First-Aid View -->
+            <div id="firstaid-view" class="hidden fade-in pb-10">
+                <button onclick="goToHome()"
+                    class="text-slate-400 hover:text-blue-600 flex items-center gap-1 text-sm mb-4"><i
+                        data-lucide="chevron-left" class="w-4 h-4"></i> Back to Home</button>
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="bg-red-100 p-2.5 rounded-xl text-red-600"><i data-lucide="shield-alert"
+                            class="w-6 h-6"></i></div>
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-800">First-Aid Guide</h2>
+                        <p class="text-slate-500 text-xs mt-1 leading-tight">Emergency instructions. For severe cases,
+                            call emergency services immediately.</p>
+                    </div>
+                </div>
+                <div class="space-y-4">
+                    <div class="bg-white border text-left border-slate-200 rounded-2xl overflow-hidden cursor-pointer hover:border-red-300 transition"
+                        onclick="toggleFirstAid('fa-choking')">
+                        <div class="p-4 flex items-center justify-between bg-slate-50">
+                            <div class="flex items-center gap-3 font-bold text-slate-800"><i data-lucide="alert-circle"
+                                    class="w-5 h-5 text-red-500"></i> Choking</div>
+                            <i data-lucide="chevron-down" class="w-5 h-5 text-slate-400"></i>
+                        </div>
+                        <div id="fa-choking"
+                            class="hidden p-4 text-sm text-slate-600 border-t border-slate-100 bg-white">
+                            <ul class="list-disc pl-5 space-y-1">
+                                <li>Ask "Are you choking?" If they nod but can't speak, act immediately.</li>
+                                <li>Stand behind the person, wrap your arms around their waist.</li>
+                                <li>Make a fist with one hand and place it just above their navel.</li>
+                                <li>Grasp your fist with your other hand.</li>
+                                <li>Perform 5 quick, upward abdominal thrusts (Heimlich maneuver).</li>
+                                <li>Alternate with 5 back blows until the object is dislodged.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="bg-white border text-left border-slate-200 rounded-2xl overflow-hidden cursor-pointer hover:border-red-300 transition"
+                        onclick="toggleFirstAid('fa-bleeding')">
+                        <div class="p-4 flex items-center justify-between bg-slate-50">
+                            <div class="flex items-center gap-3 font-bold text-slate-800"><i data-lucide="droplets"
+                                    class="w-5 h-5 text-red-500"></i> Severe Bleeding</div>
+                            <i data-lucide="chevron-down" class="w-5 h-5 text-slate-400"></i>
+                        </div>
+                        <div id="fa-bleeding"
+                            class="hidden p-4 text-sm text-slate-600 border-t border-slate-100 bg-white">
+                            <ul class="list-disc pl-5 space-y-1">
+                                <li>Ensure the area is safe. Wear gloves if possible.</li>
+                                <li>Cover the wound with a clean cloth or sterile dressing.</li>
+                                <li>Apply firm, direct pressure securely with both hands.</li>
+                                <li>If blood soaks through, do NOT remove the cloth; add another on top.</li>
+                                <li>If possible, elevate the injured area above the heart.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="bg-white border text-left border-slate-200 rounded-2xl overflow-hidden cursor-pointer hover:border-red-300 transition"
+                        onclick="toggleFirstAid('fa-burns')">
+                        <div class="p-4 flex items-center justify-between bg-slate-50">
+                            <div class="flex items-center gap-3 font-bold text-slate-800"><i data-lucide="flame"
+                                    class="w-5 h-5 text-red-500"></i> Burns</div>
+                            <i data-lucide="chevron-down" class="w-5 h-5 text-slate-400"></i>
+                        </div>
+                        <div id="fa-burns" class="hidden p-4 text-sm text-slate-600 border-t border-slate-100 bg-white">
+                            <ul class="list-disc pl-5 space-y-1">
+                                <li>Cool the burn immediately under cool (not cold) running water for at least 10-15
+                                    minutes.</li>
+                                <li>Remove tight items, such as rings, from the burned area before it swells.</li>
+                                <li>Do NOT apply ice, butter, ointments, or break blisters.</li>
+                                <li>Cover the burn loosely with a sterile, non-fluffy dressing or cling film.</li>
+                                <li>Take over-the-counter pain relievers if needed.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="bg-white border text-left border-slate-200 rounded-2xl overflow-hidden cursor-pointer hover:border-red-300 transition"
+                        onclick="toggleFirstAid('fa-fainting')">
+                        <div class="p-4 flex items-center justify-between bg-slate-50">
+                            <div class="flex items-center gap-3 font-bold text-slate-800"><i
+                                    data-lucide="activity-square" class="w-5 h-5 text-red-500"></i> Fainting</div>
+                            <i data-lucide="chevron-down" class="w-5 h-5 text-slate-400"></i>
+                        </div>
+                        <div id="fa-fainting"
+                            class="hidden p-4 text-sm text-slate-600 border-t border-slate-100 bg-white">
+                            <ul class="list-disc pl-5 space-y-1">
+                                <li>Position the person on their back. If there are no injuries, elevate their legs
+                                    above heart level.</li>
+                                <li>Loosen tight clothing, belts, or collars.</li>
+                                <li>Ensure they have plenty of fresh air.</li>
+                                <li>Do NOT pour water on their face or force them to drink.</li>
+                                <li>If the person doesn't regain consciousness within 1 minute, call emergency services
+                                    and begin CPR if necessary.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Emergency Helplines View -->
+            <div id="helplines-view" class="hidden fade-in pb-10">
+                <button onclick="goToHome()"
+                    class="text-slate-400 hover:text-blue-600 flex items-center gap-1 text-sm mb-4"><i
+                        data-lucide="chevron-left" class="w-4 h-4"></i> Back to Home</button>
+
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="bg-rose-100 p-2.5 rounded-xl text-rose-600"><i data-lucide="phone-call"
+                            class="w-6 h-6"></i></div>
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-800">Emergency Helpline Numbers</h2>
+                        <p class="text-slate-500 text-xs mt-1 leading-tight">Common emergency contacts in India. Tap a
+                            number to call.</p>
+                    </div>
+                </div>
+
+                <div class="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
+                    <div class="divide-y divide-slate-100">
+                        <a href="tel:112"
+                            class="flex items-center justify-between p-4 hover:bg-slate-50 transition">
+                            <div class="flex items-center gap-3">
+                                <div class="bg-blue-50 p-2 rounded-xl text-blue-600"><i data-lucide="siren"
+                                        class="w-5 h-5"></i></div>
+                                <div>
+                                    <div class="font-bold text-slate-800 text-sm">112</div>
+                                    <div class="text-slate-500 text-xs">All-in-one Emergency</div>
+                                </div>
+                            </div>
+                            <div class="text-slate-400 text-xs font-semibold">CALL</div>
+                        </a>
+
+                        <a href="tel:100"
+                            class="flex items-center justify-between p-4 hover:bg-slate-50 transition">
+                            <div class="flex items-center gap-3">
+                                <div class="bg-indigo-50 p-2 rounded-xl text-indigo-600"><i data-lucide="badge-check"
+                                        class="w-5 h-5"></i></div>
+                                <div>
+                                    <div class="font-bold text-slate-800 text-sm">100</div>
+                                    <div class="text-slate-500 text-xs">Police</div>
+                                </div>
+                            </div>
+                            <div class="text-slate-400 text-xs font-semibold">CALL</div>
+                        </a>
+
+                        <a href="tel:101"
+                            class="flex items-center justify-between p-4 hover:bg-slate-50 transition">
+                            <div class="flex items-center gap-3">
+                                <div class="bg-orange-50 p-2 rounded-xl text-orange-600"><i data-lucide="flame"
+                                        class="w-5 h-5"></i></div>
+                                <div>
+                                    <div class="font-bold text-slate-800 text-sm">101</div>
+                                    <div class="text-slate-500 text-xs">Fire</div>
+                                </div>
+                            </div>
+                            <div class="text-slate-400 text-xs font-semibold">CALL</div>
+                        </a>
+
+                        <a href="tel:108"
+                            class="flex items-center justify-between p-4 hover:bg-slate-50 transition">
+                            <div class="flex items-center gap-3">
+                                <div class="bg-emerald-50 p-2 rounded-xl text-emerald-600"><i
+                                        data-lucide="ambulance" class="w-5 h-5"></i></div>
+                                <div>
+                                    <div class="font-bold text-slate-800 text-sm">108</div>
+                                    <div class="text-slate-500 text-xs">Ambulance / Medical Emergency</div>
+                                </div>
+                            </div>
+                            <div class="text-slate-400 text-xs font-semibold">CALL</div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <div id="input-container"
+            class="hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-slate-200 p-4 pb-10">
+            <div class="container mx-auto max-w-2xl flex gap-3">
+                <input id="user-input" type="text"
+                    class="w-full bg-slate-100 rounded-2xl py-4 px-6 focus:outline-none focus:ring-2 focus:ring-blue-600 transition"
+                    placeholder="e.g., 'मुझे कल से बुखार है' or 'I have a dry cough'...">
+                <button id="send-btn" onclick="handleSend()"
+                    class="bg-blue-600 text-white px-6 rounded-2xl hover:bg-blue-700 transition shadow-lg shadow-blue-200"><i
+                        data-lucide="send" class="w-5 h-5"></i></button>
+            </div>
+            <p class="text-[10px] text-center text-slate-400 mt-3 font-medium px-4 uppercase tracking-widest">Medical AI
+                Assistant • Privacy Protected</p>
+        </div>
+    </section>
+
+    <script type="module">
+        import { GoogleGenerativeAI } from "@google/generative-ai";
+
+        // --- CONFIGURATION ---
+        const API_KEY = "YOUR_GEMINI_API_KEY_HERE";
+        const genAI = new GoogleGenerativeAI(API_KEY);
+        const model = genAI.getGenerativeModel({
+            model: "gemini-2.5-flash",
+            generationConfig: { responseMimeType: "application/json" },
+            systemInstruction: `You are a professional AI Health Assistant.
+            You must ALWAYS respond with valid JSON matching this exact schema:
+            {
+                "response_type": "symptom_analysis" | "general_chat",
+                "chat_reply": "A helpful conversational reply used ONLY if response_type is 'general_chat'. Max 3 sentences.",
+                
+                "analysis": "A brief, 1-2 sentence overview of the provided symptoms used ONLY if response_type is 'symptom_analysis'.",
+                "urgency_level": "low" | "medium" | "high" | "critical",
+                "urgency_reason": "One short sentence explaining why this urgency was chosen.",
+                "causes": [ { "name": "Condition A", "description": "Why this might fit..." } ],
+                "precautions": [ "List Item 1", "List Item 2" ],
+                "post_measures": [ "When to see a doctor", "Follow-up steps" ]
+            }
+            
+            1. MULTILINGUAL: You MUST evaluate the language of the CURRENT user input independently. If the user switched languages from the previous message (e.g., from English to Hindi in a follow-up), you MUST respond in the NEW language. Provide all JSON *values* in that language. Keep all JSON *keys* in English.
+            2. ANALYSIS ("symptom_analysis"): Only output this if the user is explicitly describing new symptoms. Suggest potential causes (strictly state these are not a formal diagnosis).
+            3. CONVERSATIONAL ("general_chat"): Output this if the user is asking a follow-up question (e.g., "what should I eat?", "what does that mean?"), thanking you, greeting you, or if they haven't provided any medical symptoms yet. Your response must be in 'chat_reply'. If no symptoms are provided, politely ask for them.
+            4. SAFETY: If symptoms sound emergency-level (chest pain, stroke signs), mark "urgency_level": "critical" and advise calling emergency services in "post_measures".`
+        });
+
+        // Initialize Chat Session State
+        let chatSession = null;
+
+        // --- LOCAL EXPERT SYSTEM (KNOWLEDGE BASE) ---
+        const MEDICAL_KNOWLEDGE = [
+            {
+                keywords: ["headache", "migraine", "head ache", "सिरदर्द"],
+                data: {
+                    response_type: "symptom_analysis",
+                    analysis: "You are experiencing head pain which could be a tension headache or migraine.",
+                    urgency_level: "low",
+                    urgency_reason: "Most headaches are benign and resolve with rest or hydration.",
+                    causes: [{ name: "Tension Headache", description: "Often caused by stress, poor posture, or screen time." }, { name: "Dehydration", description: "Lack of proper water intake can cause headaches." }],
+                    precautions: ["Rest in a quiet, dark room.", "Drink plenty of water.", "Limit screen time."],
+                    post_measures: ["Take over-the-counter pain relievers if needed.", "See a doctor if it is sudden, severe, or accompanied by other neurological symptoms."]
+                }
+            },
+            {
+                keywords: ["cold", "runny nose", "sneezing", "जुकाम", "सर्दी"],
+                data: {
+                    response_type: "symptom_analysis",
+                    analysis: "You are exhibiting symptoms typical of a common cold or upper respiratory infection.",
+                    urgency_level: "low",
+                    urgency_reason: "Colds are usually self-limiting and resolve within a week or two.",
+                    causes: [{ name: "Viral Infection", description: "Rhinovirus is the most common cause of the common cold." }],
+                    precautions: ["Get plenty of rest.", "Stay hydrated.", "Wash hands frequently to avoid spreading."],
+                    post_measures: ["Use saline nasal drops.", "See a doctor if symptoms last more than 10 days or worsen significantly."]
+                }
+            },
+            {
+                keywords: ["acid reflux", "heartburn", "acidity", "एसिडिटी"],
+                data: {
+                    response_type: "symptom_analysis",
+                    analysis: "Your symptoms suggest acid reflux or GERD (Gastroesophageal Reflux Disease).",
+                    urgency_level: "low",
+                    urgency_reason: "Occasional heartburn is common and usually manageable with diet changes.",
+                    causes: [{ name: "Dietary Triggers", description: "Spicy, fatty, or acidic foods can relax the lower esophageal sphincter." }],
+                    precautions: ["Avoid eating large meals before bedtime.", "Avoid spicy and acidic foods.", "Elevate your head while sleeping."],
+                    post_measures: ["Try over-the-counter antacids.", "Consult a doctor if heartburn occurs more than twice a week."]
+                }
+            },
+            {
+                keywords: ["muscle strain", "sprain", "muscle pain", "मांसपेशियों में दर्द"],
+                data: {
+                    response_type: "symptom_analysis",
+                    analysis: "This sounds like a muscle strain or sprain from overexertion or injury.",
+                    urgency_level: "low",
+                    urgency_reason: "Most mild to moderate strains heal on their own with proper care.",
+                    causes: [{ name: "Overexertion", description: "Pushing a muscle beyond its limit during activity." }],
+                    precautions: ["Rest the affected area.", "Apply ice for 15-20 minutes every few hours.", "Compress with an elastic bandage."],
+                    post_measures: ["Elevate the injured area.", "Seek medical help if you cannot move the joint or bear weight."]
+                }
+            },
+            {
+                keywords: ["high blood pressure", "hypertension", "bp", "हाई बीपी"],
+                data: {
+                    response_type: "symptom_analysis",
+                    analysis: "Elevated blood pressure is a serious condition that requires management.",
+                    urgency_level: "medium",
+                    urgency_reason: "Chronic high blood pressure increases the risk of heart disease and stroke.",
+                    causes: [{ name: "Primary Hypertension", description: "Develops gradually over years, often related to lifestyle and genetics." }],
+                    precautions: ["Reduce sodium (salt) intake.", "Exercise regularly.", "Avoid stress and limit alcohol."],
+                    post_measures: ["Monitor blood pressure regularly.", "Consult a doctor for a long-term management plan and medication."]
+                }
+            },
+            {
+                keywords: ["fever", "high temperature", "बुखार"],
+                data: {
+                    response_type: "symptom_analysis",
+                    analysis: "A fever is the body's natural response to fighting off an infection.",
+                    urgency_level: "medium",
+                    urgency_reason: "While common, a persistently high fever needs medical evaluation.",
+                    causes: [{ name: "Infection", description: "Viral or bacterial infections are the most common causes." }],
+                    precautions: ["Rest and drink plenty of fluids.", "Wear lightweight clothing.", "Keep the room comfortably cool."],
+                    post_measures: ["Take antipyretics like paracetamol if uncomfortable.", "See a doctor if fever exceeds 103°F (39.4°C) or lasts over 3 days."]
+                }
+            },
+            {
+                keywords: ["cough", "coughing", "खांसी"],
+                data: {
+                    response_type: "symptom_analysis",
+                    analysis: "A cough can be caused by various respiratory issues, from a cold to allergies.",
+                    urgency_level: "low",
+                    urgency_reason: "Most acute coughs resolve safely in a few weeks.",
+                    causes: [{ name: "Respiratory Tract Infection", description: "Such as a cold or flu." }, { name: "Allergies", description: "Reaction to dust, pollen, or pet dander." }],
+                    precautions: ["Stay hydrated with warm liquids.", "Use a humidifier.", "Avoid smoking and irritants."],
+                    post_measures: ["Try honey or over-the-counter cough drops.", "Consult a doctor if coughing produces blood or lasts more than 3 weeks."]
+                }
+            },
+            {
+                keywords: ["stomach ache", "nausea", "vomiting", "पेट दर्द"],
+                data: {
+                    response_type: "symptom_analysis",
+                    analysis: "Stomach discomfort or nausea can result from dietary issues or mild infections.",
+                    urgency_level: "medium",
+                    urgency_reason: "Can lead to dehydration if accompanied by severe vomiting or diarrhea.",
+                    causes: [{ name: "Gastroenteritis", description: "Stomach bug or food poisoning." }, { name: "Indigestion", description: "Eating too quickly or consuming triggering foods." }],
+                    precautions: ["Eat bland foods (BRAT diet).", "Sip clear fluids slowly to stay hydrated.", "Avoid dairy and greasy foods."],
+                    post_measures: ["Rest deeply.", "Seek emergency care if you cannot keep fluids down for 24 hours or experience severe, sudden pain."]
+                }
+            },
+            {
+                keywords: ["allergy", "allergies", "sneezing", "itchy eyes", "एलर्जी"],
+                data: {
+                    response_type: "symptom_analysis",
+                    analysis: "These symptoms are indicative of an allergic reaction.",
+                    urgency_level: "low",
+                    urgency_reason: "Mild allergies are very common and usually not dangerous.",
+                    causes: [{ name: "Environmental Allergens", description: "Pollen, dust mites, mold, or pet dander." }],
+                    precautions: ["Identify and avoid the allergen.", "Keep windows closed during high pollen seasons.", "Wash hands and face after being outdoors."],
+                    post_measures: ["Use over-the-counter antihistamines.", "See an allergist if symptoms severely impact daily life."]
+                }
+            },
+            {
+                keywords: ["back pain", "lower back", "पीठ दर्द"],
+                data: {
+                    response_type: "symptom_analysis",
+                    analysis: "Back pain is a common issue often related to muscle or ligament strain.",
+                    urgency_level: "low",
+                    urgency_reason: "Most acute back pain gets better within a few weeks with self-care.",
+                    causes: [{ name: "Muscle Strain", description: "Heavy lifting or a sudden awkward movement." }, { name: "Poor Posture", description: "Sitting hunched over a desk for long periods." }],
+                    precautions: ["Maintain proper posture.", "Do gentle stretches.", "Use heat or ice packs."],
+                    post_measures: ["Avoid heavy lifting.", "Consult a doctor if pain radiates down the leg or causes numbness/tingling."]
+                }
+            }
+        ];
+
+        // --- NAVIGATION & AUTH ---
+        window.mockLogin = (name) => {
+            localStorage.setItem('hg_username', name);
+            showApp(name);
+        };
+
+        function showApp(name) {
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('app-interface').classList.remove('hidden');
+            document.getElementById('display-name').innerText = name;
+            goToHome();
+        }
+
+        window.logout = () => {
+            localStorage.removeItem('hg_username');
+            location.reload();
+        };
+
+        window.goToHome = () => {
+            hideAll();
+            document.getElementById('home-view').classList.remove('hidden');
+        };
+
+        window.startNewChat = () => {
+            hideAll();
+
+            // Start a fresh conversational history session
+            chatSession = model.startChat({ history: [] });
+
+            document.getElementById('chat-view').classList.remove('hidden');
+            document.getElementById('input-container').classList.remove('hidden');
+            document.getElementById('chat-messages').innerHTML = '';
+
+            addMessage('ai', 'Welcome! Please describe your symptoms or ask me a health-related question. I can understand and reply in English, Hindi, and many other languages.');
+        };
+
+        window.goToLogs = () => {
+            hideAll();
+            document.getElementById('logs-view').classList.remove('hidden');
+            renderLogs();
+        };
+
+        window.goToBMI = () => {
+            hideAll();
+            document.getElementById('bmi-view').classList.remove('hidden');
+            document.getElementById('bmi-weight').value = '';
+            document.getElementById('bmi-height').value = '';
+            document.getElementById('bmi-result').classList.add('hidden');
+        };
+
+        window.goToFirstAid = () => {
+            hideAll();
+            document.getElementById('firstaid-view').classList.remove('hidden');
+        };
+
+        window.goToHelplines = () => {
+            hideAll();
+            document.getElementById('helplines-view').classList.remove('hidden');
+            lucide.createIcons();
+        };
+
+        window.calculateBMI = () => {
+            const weight = parseFloat(document.getElementById('bmi-weight').value);
+            const height = parseFloat(document.getElementById('bmi-height').value);
+            const resultBox = document.getElementById('bmi-result');
+
+            if (!weight || !height || height <= 0 || weight <= 0) {
+                resultBox.innerHTML = `<div class="p-3 bg-red-50 text-red-600 rounded-xl text-sm font-semibold border border-red-100">Please enter valid weight and height.</div>`;
+                resultBox.classList.remove('hidden');
+                return;
+            }
+
+            const bmi = weight / Math.pow(height / 100, 2);
+            let category = "Normal";
+            let color = "emerald";
+
+            if (bmi < 18.5) { category = "Underweight"; color = "yellow"; }
+            else if (bmi >= 25 && bmi < 29.9) { category = "Overweight"; color = "orange"; }
+            else if (bmi >= 30) { category = "Obese"; color = "red"; }
+
+            resultBox.innerHTML = `
+                <div class="p-4 bg-${color}-50 border border-${color}-200 rounded-2xl flex items-center justify-between">
+                    <div>
+                        <div class="text-${color}-800 font-bold text-lg">${bmi.toFixed(1)}</div>
+                        <div class="text-${color}-600 text-sm font-semibold">${category}</div>
+                    </div>
+                    <div class="text-${color}-400 text-xs text-right max-w-[50%]">Your Body Mass Index based on entered metrics.</div>
+                </div>
+            `;
+            resultBox.classList.remove('hidden');
+        };
+
+        window.toggleFirstAid = (id) => {
+            const el = document.getElementById(id);
+            if (el) el.classList.toggle('hidden');
+        };
+
+        window.findNearbyCare = () => {
+            if ("geolocation" in navigator) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        // Build Google Maps search query targeted to lat/long
+                        const url = `https://www.google.com/maps/search/Hospitals+and+Pharmacies+near+me/@${lat},${lng},14z`;
+                        window.open(url, '_blank');
+                    },
+                    (error) => {
+                        alert("Unable to retrieve your location. Please ensure location services are enabled for this site.");
+                    }
+                );
+            } else {
+                alert("Geolocation is not supported by your browser.");
+            }
+        };
+
+        function hideAll() {
+            ['home-view', 'chat-view', 'logs-view', 'input-container', 'bmi-view', 'firstaid-view', 'helplines-view'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+        }
+
+        // --- CORE CHAT LOGIC ---
+        window.handleSend = async () => {
+            const input = document.getElementById('user-input');
+            const sendBtn = document.getElementById('send-btn');
+            const text = input.value.trim();
+            if (!text || sendBtn.disabled) return;
+
+            addMessage('user', text);
+            input.value = '';
+
+            sendBtn.disabled = true;
+            const loadingId = addMessage('ai', `<div class="flex gap-1.5 py-1"><div class="typing-dot"></div><div class="typing-dot" style="animation-delay:0.2s"></div><div class="typing-dot" style="animation-delay:0.4s"></div></div>`, true);
+            try {
+                // Phase 1: Local Expert System (Keyword Match)
+                const lowerText = text.toLowerCase();
+                let localMatch = null;
+                for (const condition of MEDICAL_KNOWLEDGE) {
+                    if (condition.keywords.some(kw => lowerText.includes(kw.toLowerCase()))) {
+                        localMatch = condition.data;
+                        break;
+                    }
+                }
+
+                if (localMatch) {
+                    // Simulate brief AI processing to avoid instant loading flash
+                    await new Promise(r => setTimeout(r, 500));
+                    buildInteractiveMessage(loadingId, localMatch);
+                    saveLog(text, localMatch);
+                } else {
+                    // Phase 2: API Fallback
+                    // Use the stateful chatSession rather than model directly
+                    if (!chatSession) chatSession = model.startChat({ history: [] });
+
+                    // Strongly enforce language by wrapping the user input with a backend directive
+                    const strictPrompt = `[SYSTEM DIRECTIVE: STRICTLY respond to the following message in the exact language the message is written in. Ignore the language of any previous conversation history. Message:]\n\n${text}`;
+
+                    const result = await chatSession.sendMessage(strictPrompt);
+                    window.lastRawResponse = result.response.text(); // Cache for debugging
+
+                    // Robust extraction: Find the first { and last } to grab only the JSON object
+                    let cleanResponse = window.lastRawResponse;
+                    const jsonMatch = cleanResponse.match(/\{[\s\S]*\}/);
+                    if (jsonMatch) {
+                        cleanResponse = jsonMatch[0];
+                    }
+
+                    const jsonResponse = JSON.parse(cleanResponse);
+
+                    if (jsonResponse.response_type === 'symptom_analysis') {
+                        buildInteractiveMessage(loadingId, jsonResponse);
+                        saveLog(text, jsonResponse);
+                    } else {
+                        // It's a general chat follow-up, render standard text bubble
+                        const el = document.querySelector(`#msg-${loadingId}`);
+                        if (el) el.outerHTML = ''; // Remove loading dots
+                        addMessage('ai', jsonResponse.chat_reply);
+                    }
+                }
+            } catch (error) {
+                const errBox = document.querySelector(`#msg-${loadingId} div`);
+                let errMsg = "Connection or parsing error. Please try again.";
+
+                // Check if it's a rate limit error
+                if (error.message && error.message.includes("429")) {
+                    errMsg = "Too many requests to the AI server. Please wait a moment and try again.";
+                }
+
+                if (errBox) errBox.innerHTML = errMsg;
+                console.error("AI Error:", error);
+                if (window.lastRawResponse) console.error("Raw Failed Response:", window.lastRawResponse);
+            } finally {
+                sendBtn.disabled = false;
+            }
+        };
+
+        function addMessage(sender, text, isLoading = false) {
+            const id = Date.now();
+            const container = document.getElementById('chat-messages');
+            const isAi = sender === 'ai';
+
+            // Standard formatting for user or loading dots
+            const content = isLoading ? text : `<div class="${isAi ? 'bg-white border border-slate-200 medical-card' : 'bg-blue-600 text-white shadow-lg shadow-blue-100'} p-5 rounded-3xl ${isAi ? 'rounded-tl-none' : 'rounded-tr-none'} max-w-[90%] shadow-sm text-sm leading-relaxed whitespace-pre-wrap">${text}</div>`;
+
+            const html = `
+                <div id="msg-${id}" class="flex ${isAi ? 'justify-start' : 'justify-end'} fade-in w-full">
+                    ${content}
+                </div>`;
+            container.insertAdjacentHTML('beforeend', html);
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+            return id;
+        }
+
+        // Toggles accordion sections
+        window.toggleSection = (headerElement) => {
+            const container = headerElement.parentElement;
+            container.classList.toggle('section-expanded');
+        };
+
+        function buildInteractiveMessage(id, data) {
+            const container = document.getElementById(`msg-${id}`);
+            if (!container) return;
+
+            const uColor = {
+                'low': 'text-emerald-600 bg-emerald-50 border-emerald-200',
+                'medium': 'text-amber-600 bg-amber-50 border-amber-200',
+                'high': 'text-orange-600 bg-orange-50 border-orange-200',
+                'critical': 'text-red-600 bg-red-50 border-red-200 urgency-critical'
+            }[data.urgency_level] || 'text-blue-600 bg-blue-50 border-blue-200';
+
+            const uIcon = {
+                'low': 'check-circle',
+                'medium': 'alert-circle',
+                'high': 'alert-triangle',
+                'critical': 'octagon-alert'
+            }[data.urgency_level] || 'info';
+
+            const causesHtml = (data.causes || []).map(c => `
+                <div class="mb-3 last:mb-0 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    <h4 class="font-bold text-slate-800 text-sm mb-1">${c.name}</h4>
+                    <p class="text-slate-600 text-xs leading-relaxed">${c.description}</p>
+                </div>
+            `).join('');
+
+            const listHtml = (items, icon, color) => `<ul class="space-y-2 mt-2">` +
+                items.map(i => `<li class="flex items-start gap-2 text-sm text-slate-700">
+                    <i data-lucide="${icon}" class="w-4 h-4 mt-0.5 shrink-0 text-${color}-500"></i>
+                    <span class="leading-relaxed">${i}</span>
+                </li>`).join('') + `</ul>`;
+
+            container.innerHTML = `
+                <div class="w-full sm:w-[85%] bg-white border border-slate-200 rounded-3xl rounded-tl-none shadow-xl shadow-slate-200/50 overflow-hidden fade-in relative mb-4">
+                    
+                    <!-- Urgency Banner -->
+                    <div class="px-3 sm:px-5 py-3 sm:py-4 border-b ${uColor} flex gap-2 sm:gap-3 items-start">
+                        <i data-lucide="${uIcon}" class="w-4 h-4 sm:w-5 sm:h-5 shrink-0 mt-0.5"></i>
+                        <div>
+                            <div class="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider opacity-80 mb-0.5">Urgency: ${data.urgency_level}</div>
+                            <div class="text-xs sm:text-sm font-medium leading-tight">${data.urgency_reason}</div>
+                        </div>
+                    </div>
+
+                    <div class="p-4 sm:p-5 space-y-3 sm:space-y-4">
+                        <!-- Analysis Overview -->
+                        <p class="text-slate-700 text-xs sm:text-sm font-medium leading-relaxed">${data.analysis}</p>
+
+                        <!-- Accordion: Causes -->
+                        <div class="border border-slate-200 rounded-2xl overflow-hidden bg-white">
+                            <div onclick="toggleSection(this)" class="section-trigger px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between border-b border-slate-100">
+                                <div class="flex items-center gap-2 font-semibold text-xs sm:text-sm text-slate-800">
+                                    <div class="bg-indigo-50 p-1 sm:p-1.5 rounded-lg text-indigo-500"><i data-lucide="microscope" class="w-3 h-3 sm:w-4 sm:h-4"></i></div>
+                                    Potential Causes
+                                </div>
+                                <i data-lucide="chevron-down" class="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 chevron-icon"></i>
+                            </div>
+                            <div class="section-content bg-slate-50/50">
+                                <div class="p-3 sm:p-4">${causesHtml}</div>
+                            </div>
+                        </div>
+
+                        <!-- Accordion: Precautions -->
+                        <div class="border border-slate-200 rounded-2xl overflow-hidden bg-white">
+                            <div onclick="toggleSection(this)" class="section-trigger px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between border-b border-slate-100">
+                                <div class="flex items-center gap-2 font-semibold text-xs sm:text-sm text-slate-800">
+                                    <div class="bg-emerald-50 p-1 sm:p-1.5 rounded-lg text-emerald-500"><i data-lucide="shield-check" class="w-3 h-3 sm:w-4 sm:h-4"></i></div>
+                                    Precautions
+                                </div>
+                                <i data-lucide="chevron-down" class="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 chevron-icon"></i>
+                            </div>
+                            <div class="section-content bg-slate-50/50">
+                                <div class="p-3 sm:p-4 pt-1">${listHtml(data.precautions, 'check', 'emerald')}</div>
+                            </div>
+                        </div>
+
+                        <!-- Accordion: Next Steps -->
+                        <div class="border border-slate-200 rounded-2xl overflow-hidden bg-white">
+                            <div onclick="toggleSection(this)" class="section-trigger px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between border-b border-slate-100">
+                                <div class="flex items-center gap-2 font-semibold text-xs sm:text-sm text-slate-800">
+                                    <div class="bg-blue-50 p-1 sm:p-1.5 rounded-lg text-blue-500"><i data-lucide="stethoscope" class="w-3 h-3 sm:w-4 sm:h-4"></i></div>
+                                    Post-Measures
+                                </div>
+                                <i data-lucide="chevron-down" class="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 chevron-icon"></i>
+                            </div>
+                            <div class="section-content bg-slate-50/50">
+                                <div class="p-3 sm:p-4 pt-1">${listHtml(data.post_measures, 'arrow-right-circle', 'blue')}</div>
+                            </div>
+                        </div>
+
+                    </div>
+                    
+                    <!-- Footer -->
+                    <div class="bg-slate-50 px-3 sm:px-5 py-2 sm:py-3 border-t border-slate-100 flex justify-between items-center">
+                        <span class="text-[8px] sm:text-[9px] text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1">
+                            <i data-lucide="info" class="w-2.5 h-2.5 sm:w-3 sm:h-3"></i> AI Analysis Only.
+                        </span>
+                    </div>
+                </div>`;
+
+            // Re-render icons in new HTML
+            lucide.createIcons();
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        }
+
+        // --- HISTORY LOGS ---
+        function saveLog(symptom, jsonResponse) {
+            // Only save symptomatic analyses to History, ignore general follow-ups
+            if (jsonResponse.response_type === 'general_chat') return;
+
+            const logs = JSON.parse(localStorage.getItem('hg_logs') || '[]');
+            logs.unshift({
+                id: Date.now(),
+                date: new Date().toLocaleDateString(),
+                symptom,
+                advice: jsonResponse.analysis,
+                urgency: jsonResponse.urgency_level
+            });
+            localStorage.setItem('hg_logs', JSON.stringify(logs.slice(0, 15)));
+        }
+
+        window.renderLogs = () => {
+            const list = document.getElementById('logs-list');
+            const logs = JSON.parse(localStorage.getItem('hg_logs') || '[]');
+
+            list.innerHTML = logs.length ? logs.map(log => {
+                const badgeColor = {
+                    'low': 'bg-emerald-100 text-emerald-700',
+                    'medium': 'bg-amber-100 text-amber-700',
+                    'high': 'bg-orange-100 text-orange-700',
+                    'critical': 'bg-red-100 text-red-700'
+                }[log.urgency] || 'bg-blue-100 text-blue-700';
+
+                return `
+                <div class="bg-white border border-slate-100 p-5 rounded-3xl shadow-sm hover:border-blue-200 transition relative overflow-hidden">
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">${log.date}</div>
+                        ${log.urgency ? `<div class="${badgeColor} text-[9px] font-bold uppercase px-2 py-0.5 rounded-full">${log.urgency}</div>` : ''}
+                    </div>
+                    <p class="font-bold text-slate-800 text-sm mb-2">${log.symptom}</p>
+                    <p class="text-slate-500 text-xs line-clamp-2 leading-relaxed">${log.advice || 'Detailed analysis saved.'}</p>
+                </div>
+            `}).join('') : `<div class="text-center py-20 text-slate-400">No history available. Start a chat to see logs here.</div>`;
+            lucide.createIcons();
+        };
+
+        window.clearLogs = () => { if (confirm('Permanently clear history?')) { localStorage.removeItem('hg_logs'); renderLogs(); } };
+
+        // INITIALIZE
+        const savedUser = localStorage.getItem('hg_username');
+        if (savedUser) showApp(savedUser);
+        lucide.createIcons();
+    </script>
+</body>
+
+</html>
