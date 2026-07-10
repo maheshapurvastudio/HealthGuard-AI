@@ -7,6 +7,8 @@ HealthGuard AI is a modern, responsive, and multilingual medical assistant appli
 ![Google Gemini](https://img.shields.io/badge/Google_Gemini-2.5_Flash-orange?logo=google-gemini)
 
 ---
+You can view the live version(without api key/ai features) here:[HealthGuard-AI](https://maheshapurvastudio.github.io/HealthGuard-AI/).
+---
 
 ## ✨ Features
 
